@@ -1,0 +1,19 @@
+spark:
+  app_name: OpenFoodFacts-KMeans
+  master: local[32]
+  driver_memory: 32g
+  shuffle_partitions: "8"
+  log_level: WARN
+data:
+  input_path: data/food.parquet
+datamart:
+  url: http://localhost:8090
+preprocessing:
+  min_non_null_ratio: 0.9
+  target_rows: 100000
+  imputer_strategy: median
+training:
+  k: 2
+  seed: 42
+  metric_name: silhouette
+  distance_measure: squaredEuclidean
