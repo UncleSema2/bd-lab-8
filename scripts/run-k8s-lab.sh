@@ -105,7 +105,6 @@ wait_for_deployment datamart 300s
 echo "Data source is ready. Resubmitting spark-train job..."
 run_job
 
-# Step 4: datamart storage + rolling updates
 echo ""
 echo "=== Step 4: datamart storage + rolling updates ==="
 wait_for_deployment mssql 300s
