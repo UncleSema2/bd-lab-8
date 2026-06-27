@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-train
+  namespace: lab8
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: spark-train
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: spark-train
+          image: lab8-app:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "src/main.py", "--config", "config.k8s.yaml"]
+          resources:
+            requests:
+              cpu: "1500m"
+              memory: "768Mi"
+            limits:
+              cpu: "2"
+              memory: "896Mi"
+          volumeMounts:
+            - name: model-config
+              mountPath: /app/config.k8s.yaml
+              subPath: config.k8s.yaml
+      volumes:
+        - name: model-config
+          configMap:
+            name: model-config

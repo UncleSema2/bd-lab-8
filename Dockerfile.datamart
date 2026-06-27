@@ -16,6 +16,7 @@ WORKDIR /app
 
 COPY --from=builder /build/target/universal/stage /opt/datamart
 COPY src/datamart/config.json ./config.json
+COPY data/food_small.parquet ./data/food_small.parquet
 
 ENV DATAMART_CONFIG=config.json
 EXPOSE 8090

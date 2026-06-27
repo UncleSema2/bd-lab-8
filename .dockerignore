@@ -1,6 +1,6 @@
 .venv
 .git
-data
+data/food.parquet
 **/__pycache__
 *.pyc
 src/datamart/target
