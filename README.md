@@ -1,30 +1,72 @@
 # OpenFoodFacts KMeans Clustering on PySpark
 
-Кластеризация продуктов из OpenFoodFacts с помощью PySpark и алгоритма K-средних.
+Кластеризация продуктов из OpenFoodFacts с помощью PySpark и алгоритма K-средних, развёрнутая в Kubernetes (на базе minikube).
 
-## Установка
+## Данные
 
-```bash
-pip install -r requirements.txt
-```
-
-Данные положить в `data/food.parquet` (или указать свой путь в `config.yaml`).
-
-## WordCount
-
-Проверка работоспособности Spark:
+Полный `data/food.parquet` слишком велик для minikube, поэтому используется сэмпл
+`data/food_small.parquet` (20к строк). Создать его:
 
 ```bash
-python test/wordcount.py
+python scripts/make_sample.py data/food.parquet data/food_small.parquet 20000
 ```
 
-## Кластеризация
+## Запуск в Kubernetes
 
 ```bash
-python src/main.py --config config.yaml
+bash scripts/run-k8s-lab.sh
 ```
 
-Гиперпараметры задаются в `config.yaml`.
+Скрипт стартует minikube, собирает образы `lab8-app` и `lab8-datamart`, накатывает манифесты из `k8s/` и прогоняет обучение.
+
+## Проверка
+
+```bash
+kubectl get po -n lab8
+kubectl logs -n lab8 -l app=spark-train --tail=50
+
+MSSQL_POD="$(kubectl get pod -n lab8 -l app=mssql -o jsonpath='{.items[0].metadata.name}')"
+kubectl exec -n lab8 "$MSSQL_POD" -- /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P 'QwErTy123@!' -No -Q \
+  "USE food; SELECT COUNT(*) FROM food_predictions; SELECT metric, value FROM food_metrics;"
+```
+
+## Утилизация ресурсов
+
+Лимиты в манифестах подобраны так, чтобы утилизация была 70–80%
+(замерено на сэмпле 20к строк):
+
+| Сервис | Ресурс | Пик / лимит | Утилизация |
+|---|---|---|---|
+| Модель | CPU | 1501m / 2 | 75% |
+| Модель | RAM | 664Mi / 896Mi | 74% |
+| Витрина | RAM | 1540Mi / 2Gi | 75% |
+
+У `mssql` лимиты по CPU сложно подобрать, они при такой нагрузке 10–20%. Лимиты: модель —
+`k8s/spark-job.yaml`, mssql — `k8s/mssql.yaml`.
+
+Смотрел через `metrics-server`:
+
+```bash
+minikube addons enable metrics-server
+kubectl rollout status deploy/metrics-server -n kube-system
+```
+
+Текущее потребление против лимитов (утилизация = `usage / limit`):
+
+```bash
+kubectl top pods -n lab8
+```
+
+Пик RAM модели:
+
+```bash
+POD=$(kubectl get pod -n lab8 -l app=spark-train -o jsonpath='{.items[0].metadata.name}')
+while kubectl get pod -n lab8 "$POD" -o jsonpath='{.status.phase}' | grep -q Running; do
+  kubectl exec -n lab8 "$POD" -- cat /sys/fs/cgroup/memory.peak
+  sleep 3
+done
+```
 
 ## Источник данных: MS SQL Server
 

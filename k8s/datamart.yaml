@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datamart
+  namespace: lab8
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: datamart
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: datamart
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: datamart
+          image: lab8-datamart:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8090
+            - name: spark-ui
+              containerPort: 4040
+          env:
+            - name: DATAMART_HOST
+              value: "0.0.0.0"
+            - name: DATAMART_PORT
+              value: "8090"
+            - name: MSSQL_HOST
+              value: mssql
+            - name: MSSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secret
+                  key: sa-password
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datamart
+  namespace: lab8
+spec:
+  type: ClusterIP
+  selector:
+    app: datamart
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
